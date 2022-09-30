@@ -33,7 +33,7 @@ class Ds(Dataset):
 
 
 class DataLoaderLightning(LightningDataModule):
-    def __init__(self, path: str, batch_train: int = 32, batch_val: int = 32):
+    def __init__(self, path: str, batch_train: int = 32, batch_val: int = 32, nw_train: int = 2, nw_val: int = 2):
         super(DataLoaderLightning, self).__init__()
         self.y_t = None
         self.x_t = None
@@ -41,10 +41,13 @@ class DataLoaderLightning(LightningDataModule):
         self.x_v = None
         self.x = []
         self.y = []
+        self.nw_train = nw_train
+        self.nw_val = nw_val
+
         self.batch_train = batch_train
         self.batch_val = batch_val
         self.data = pd.read_csv(path)
-        self.setup()
+        self.start()
         self.limit = int(len(self.x) * 0.8)
 
     @staticmethod
@@ -54,7 +57,7 @@ class DataLoaderLightning(LightningDataModule):
         dl[int(dd) - 1], ml[int(mm) - 1], yl[0] = 1, 1, int(yy)
         return [yl, ml, dl]
 
-    def setup(self, stage) -> None:
+    def start(self) -> None:
         d, p, t, m, _ = [self.data[f'{v}'].values for v in self.data.keys()]
 
         tp, yp, mp, dt = [], [], [], []
@@ -63,7 +66,7 @@ class DataLoaderLightning(LightningDataModule):
         mmx = max(m)
         for index, (da, pa, ta, ma) in enumerate(zip(d, p, t, m)):
             pr(f'\r Moving Data Around Pass : % {(index / len(d)) * 100:.1f}')
-            da, pa, ta, ma = self.time_to_tensor(input=da), torch.tensor(pa / pmx), torch.tensor(
+            da, pa, ta, ma = self.time_to_tensor(input=da), torch.tensor(pa), torch.tensor(
                 ta / tmx), torch.tensor(ma / mmx)
             dt.append(da)
             yp.append(pa)
@@ -80,11 +83,11 @@ class DataLoaderLightning(LightningDataModule):
 
     def train_dataloader(self):
         data_l = Ds(x=self.x[:self.limit], y=self.y[:self.limit])
-        return DataLoader(data_l, batch_size=self.batch_train)
+        return DataLoader(data_l, batch_size=self.batch_train, num_workers=self.nw_train)
 
     def val_dataloader(self):
         data_l = Ds(x=self.x[self.limit:], y=self.y[self.limit:])
-        return DataLoader(data_l, batch_size=self.batch_val)
+        return DataLoader(data_l, batch_size=self.batch_val, num_workers=self.nw_val)
 
 
 class DataLoaderTorch(Dataset, ABC):
